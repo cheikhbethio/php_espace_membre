@@ -5,8 +5,10 @@
  * Date: 22/01/2016
  * Time: 16:42
  */
+require_once 'inc/bootstrap.php';
 require 'inc/functions.php';
-isLogged();
+$auth = App::getAuth();
+$auth->restrict();
 if(empty($_POST) || $_POST['password']!=$_POST['password_confirm']){
     $_SESSION['flash']['danger'] = "Les deux mots de passe ne sont pas valide !";
 }else{

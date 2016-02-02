@@ -1,42 +1,29 @@
 <?php
-   /* $_GET['id'] =$_GET['id'];
-    $_GET['token'] = $_GET['token'];
-    $_POST['password'] = $_POST['password'];
-    $_POST['password_confirm'] = $_POST['password_confirm'];*/
-    session_start();
+require 'inc/bootstrap.php';
     if(isset($_GET['id']) && isset($_GET['token'])){
-        require 'inc/db.php';
-        //chercher luser avec son id veirier si le reset token est bon
-        $req = $pdo->prepare('SELECT * from users WHERE id=? AND  reset_token=? AND reset_at > DATE_SUB(NOW(), INTERVAL 230 MINUTE)');
-        $req->execute([$_GET['id'],$_GET['token']]);
-        $user = $req->fetch();
-        //faire le update si tout est ok
+        $auth =  App::getAuth();
+        $db = App::getDataBase();
+        $user = $auth->checkResetToken($db, $_GET['id'],$_GET['token']);
         if($user){
             if(!empty($_POST)) {
-                if (!empty($_POST['password']) && $_POST['password'] == $_POST['password_confirm']) {
+                $validator = new Validator($_POST);
+                $validator->isConfirmPWD('password');
+                if ($validator->isValid()) {
                     $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-                    $reqUp = $pdo->prepare('UPDATE users SET reset_token = NULL, reset_at = NULL, password = ?  WHERE id=?');
-                    $reqUp->execute([$password, $_GET['id']]);
-                    $_SESSION['flash']['success'] = "Votre mot de passe a bien été réinitialisé!";
-                    header('Location: login.php');
-                    exit();
+                    $reqUp = $db->query('UPDATE users SET reset_token = NULL, reset_at = NULL, password = ?  WHERE id=?' , [$password, $_GET['id']]);
+                    Session::getInstance()->setFlash('success', "Votre mot de passe a bien été réinitialisé!");
+                    App::redirect('account.php');
                 } else {
-                    $_SESSION['flash']['danger'] = "Les deux mots de passe ne match pas!";
-                    var_dump($_POST['password']);
-                    var_dump($_POST['password_confirm']);
-                    /*header('Location: login.php');
-                    exit();*/
+                    Session::getInstance()->setFlash('danger', "Les deux mots de passe ne match pas!");
+                    App::redirect('login.php');
                 }
             }
         }else{
-            //message falsh et redirection
-            $_SESSION['flash']['danger'] = "ce compte est introuvable!";
-            header('Location: login.php');
-            exit();
+            Session::getInstance()->setFlash('danger', "ce compte est introuvable!");
+            App::getAuth('login.php');
         }
     }else{
-        header('Location: login.php');
-        exit();
+        App::getAuth('login.php');
     }
 ?>
 

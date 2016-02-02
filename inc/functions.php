@@ -1,11 +1,4 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: moussa
- * Date: 20/01/2016
- * Time: 12:22
- */
-
 function debug($vari){
     echo '<pre>'. print_r($vari, true) . '</pre>';
 }

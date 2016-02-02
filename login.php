@@ -1,34 +1,20 @@
 <?php
-require 'inc/functions.php';
-reconnect_from_cookie();
-if(isset($_SESSION['auth'])){
-    header('Location: account.php');
-    exit();
+require_once 'inc/bootstrap.php';
+$auth = App::getAuth();
+$db =  App::getDataBase();
+$auth->reconnect_from_cookie($db);
+if($auth->user()){
+    App::redirect('account.php');
 }
 
 if(!empty($_POST) && !empty($_POST['username']) && !empty($_POST['password'])){
-    require_once 'inc/db.php';
-    require_once 'inc/functions.php';
-    $req = $pdo->prepare("
-      SELECT * FROM users
-        WHERE (username = :username OR email = :username) AND confirm_at IS NOT NULL
-      ");
-    $req->execute(['username' =>$_POST['username']]);
-    $user = $req->fetch();
-    if(password_verify($_POST['password'], $user->password)){
-        $_SESSION['auth'] = $user;
-        $_SESSION['flash']['success'] =  "Vous êtes maintenant bien connecté !";
-        if($_POST['remember']){
-            $rememberToken = str_random(250);
-            $reqUpTok = $pdo->prepare('UPDATE users SET remember_token=? WHERE id=?');
-            $reqUpTok->execute([$rememberToken, $user->id]);
-            setcookie("remember", $user->id . "==" . $rememberToken . sha1($user->id, "lesauveur"), time() + 60*60*24*30);
-        }
-       // die();
-        header('Location: account.php');
-        exit();
+    $user = $auth->login($db,$_POST['username'], $_POST['password'], isset($_POST['remember']));
+    $session = Session::getInstance();
+    if($user){
+        $session->setFlash('success',  "Vous êtes maintenant bien connecté !" );
+        App::redirect('account.php');
     }else{
-        $_SESSION['flash']['danger'] =  "Mot de pass ou identifiant incorrect!";
+        $session->setFlash('danger', "Mot de pass ou identifiant incorrect!");
     }
 }
 ?>

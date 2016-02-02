@@ -1,38 +1,31 @@
-
 <?php
-session_start();
-require_once 'inc/functions.php';
+require_once 'inc/bootstrap.php';
 
-require_once 'inc/db.php';
 if(!empty($_POST)){
+    $db = App::getDataBase();
     $errors = array();
-    if(empty($_POST['username']) || !preg_match('/^[a-zA-Z0-9_]+$/', $_POST['username'])){
-        $errors['username'] = 'Votre pseudo n\'est pas valide';
-    }else{
-        $req = $pdo->prepare('SELECT * FROM users WHERE username=?');
-        $req->execute([$_POST['username']]);
-        $user = $req->fetch();
-        if($user){
-            $errors['username'] = 'Ce pseudo est déjà utilisé';
-        }
+
+    $validator = new Validator($_POST);
+    $validator->isAlpha('username', 'Votre pseudo n\'est pas valide, il doit etre au format AlphaNumérique');
+    if($validator->isValid()){
+        $validator->isUniq('username', $db, 'users', 'Ce pseudo est déjà utilisé');
     }
-    if(empty($_POST['email']) || !filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)){
-        $errors['email'] = 'Votre email n\'est pas valide';
+    $validator->isEmail('email', 'Votre email n\'est pas valide');
+    if($validator->isValid()){
+        $validator->isUniq('email', $db, 'users', 'Cet Email est deja utilisé pour un autre compte!');
     }
-    if(empty($_POST['password']) || $_POST['password']!=$_POST['password_confirm']){
-        $errors['password'] = 'Vos deux mots de passe ne sont pas les mêmes';
-    }
-    if(empty($errors)){
-        $req = $pdo->prepare("insert into users set email =  ?, password =  ?, username =  ?, confirmation_token = ?");
-        $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-        $token = str_random(70);
-        $res = $req->execute([$_POST['email'], $password, $_POST['username'], $token]);
-        $user_id = $pdo->lastInsertId();
-        mail($_POST['email'], 'confirmation de votre compte', "Pour valider votre compte cliquez sur ce lien :
-        http://localhost/tuto/php_espace_membre/confirm.php?id=$user_id&token=$token");
-        $_SESSION['flash']['success'] = "un email de confirmation vous a été envoyé!";
+    $validator->isConfirmPWD('password', 'Vos deux mots de passe ne sont pas les mêmes');
+
+    if($validator->isValid()){
+        $auth = App::getAuth();
+        $auth->register($db, $_POST['username'], $_POST['password'], $_POST['email']);
+
+        $session = Session::getInstance();
+        $session->setFlash('success', 'un email de confirmation vous a été envoyé!');
         header('Location: login.php');
         exit();
+    }else{
+        $errors = $validator->getErrors();
     }
 }
 ?>
